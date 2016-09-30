@@ -41,7 +41,7 @@ func SignalTest() {
 }
 func main() {
 	f, _ = os.Open("test.txt")
-	buf := make([]byte, 32)
+	buf := make([]byte, 1024)
 	key = []byte(strings.Replace(dir, "\\", "/", -1) + "/" + f.Name())
 	once.Do(initData)
 	go SignalTest()
