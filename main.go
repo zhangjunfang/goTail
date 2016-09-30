@@ -1,4 +1,3 @@
-// DDDDD project main.go
 package main
 
 import (
@@ -14,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-var c = make(chan os.Signal)
+var c = make(chan os.Signal, 1)
 var temp int64 = 0
 var dir, _ = os.Getwd()
 var db, _ = leveldb.OpenFile(strings.Replace(dir, "\\", "/", -1)+"/.d", nil)
@@ -39,7 +38,6 @@ func SignalTest() {
 			db.Put(key, []byte(strconv.Itoa(int(temp))), nil)
 		}
 	}
-
 }
 func main() {
 	f, _ = os.Open("test.txt")
