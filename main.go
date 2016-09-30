@@ -19,7 +19,7 @@ var temp int64 = 0
 var dir, _ = os.Getwd()
 var db, _ = leveldb.OpenFile(strings.Replace(dir, "\\", "/", -1)+"/.d", nil)
 var once sync.Once
-var key string
+var key []byte
 var f *os.File
 
 func initData() {
