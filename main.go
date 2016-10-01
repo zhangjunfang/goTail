@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,50 +12,107 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
-var c = make(chan os.Signal, 1)
-var temp int64 = 0
-var dir, _ = os.Getwd()
-var db, _ = leveldb.OpenFile(strings.Replace(dir, "\\", "/", -1)+"/.d", nil)
-var once sync.Once
-var key []byte
-var f *os.File
+var (
+	c           = make(chan os.Signal)
+	once        sync.Once
+	fs          []string
+	fileAndSeek map[string]int64
+	shut        []*os.File
+)
 
 func initData() {
 	signal.Notify(c, syscall.SIGKILL, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP)
-	initFile()
+	fs = make([]string, 16)
+	shut = make([]*os.File, 16)
+	once = sync.Once{}
+	once.Do(initData)
+	fileAndSeek = make(map[string]int64)
+	go SignalTest()
 }
-func initFile() {
-	v, _ := db.Get(key, nil)
-	t, _ := strconv.Atoi(string(v))
-	temp = int64(t)
-	f.Seek(temp, 0)
+
+func initFile(v string, f *os.File) (*leveldb.DB, error) {
+	name := f.Name()
+	v = strings.Replace(v, name, strings.Replace(name, ".", "", -1), -1) + "/d"
+	db, err := leveldb.OpenFile(v, nil)
+	if err != nil {
+		return nil, err
+	}
+	val, err := db.Get([]byte(v), nil)
+	if err == errors.ErrNotFound {
+		f.Seek(0, 0)
+		return db, nil
+	} else {
+		db.Close()
+		return nil, err
+	}
+	t, err := strconv.Atoi(string(val))
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	f.Seek(int64(t), 0)
+	return db, nil
 }
 func SignalTest() {
 	select {
 	case <-c:
 		{
-			db.Put(key, []byte(strconv.Itoa(int(temp))), nil)
+			fmt.Println("非正常终止程序！！！！！")
+			for _, v := range shut {
+				v.Close()
+			}
+			close(c)
 		}
 	}
 }
-func main() {
-	f, _ = os.Open("test.txt")
+func ReadFileData() {
+	for _, v := range fs {
+		v = strings.Replace(v, "\\", "/", -1)
+		go ReadFile(v)
+	}
+	time.Sleep(2 * time.Second)
+}
+func ReadFile(v string) {
+	f, err := os.Open(v) //defer f.Close()
+	if err != nil {
+		return
+	}
+	shut = append(shut, f)
+	var temp int64
+	db, err := initFile(v, f)
+	fmt.Println("--87---", db, err)
+	if err != nil {
+	}
 	buf := make([]byte, 1024)
-	key = []byte(strings.Replace(dir, "\\", "/", -1) + "/" + f.Name())
-	once.Do(initData)
-	go SignalTest()
 	for {
 		n, err := f.Read(buf)
 		temp = temp + int64(n)
 		if err != nil {
-			db.Put(key, []byte(strconv.Itoa(int(temp))), nil)
-			initFile()
-			time.Sleep(2 * time.Second)
+			db.Put([]byte(v), []byte(strconv.Itoa(int(temp))), nil)
+			time.Sleep(5 * time.Second)
 			continue
 		}
-		fmt.Println(string(buf[0:n]))
-		fmt.Println(temp)
+		fmt.Println("----99---1--", temp, n, string(buf[:n]))
 	}
+}
+func main() {
+	dir := "d:/test" //需要从命令行读取监控路径
+	FileIterator(dir)
+	ReadFileData()
+	for {
+
+	}
+
+}
+func FileIterator(dir string) {
+	filepath.Walk(dir, WalkFunc)
+}
+func WalkFunc(path string, info os.FileInfo, err error) error {
+	if !info.IsDir() && strings.HasSuffix(path, "/d") {
+		fs = append(fs, path)
+	}
+	return nil
 }
