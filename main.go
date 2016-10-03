@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,21 +93,14 @@ func ReadFile(v string) {
 		temp = temp + int64(n)
 		if err != nil {
 			db.Put([]byte(v), []byte(strconv.Itoa(int(temp))), nil)
-			time.Sleep(5 * time.Second)
+			runtime.Gosched()
+			//			time.Sleep(5 * time.Second)
 			continue
 		}
 		fmt.Println("----99---1--", temp, n, string(buf[:n]))
 	}
 }
-func main() {
-	dir := "d:/test" //需要从命令行读取监控路径
-	FileIterator(dir)
-	ReadFileData()
-	for {
 
-	}
-
-}
 func FileIterator(dir string) {
 	filepath.Walk(dir, WalkFunc)
 }
@@ -115,4 +109,16 @@ func WalkFunc(path string, info os.FileInfo, err error) error {
 		fs = append(fs, path)
 	}
 	return nil
+}
+
+type WriteSource func(s string)
+
+func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	dir := "d:/test" //需要从命令行读取监控路径
+	FileIterator(dir)
+	ReadFileData()
+	for {
+
+	}
 }
